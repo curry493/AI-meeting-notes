@@ -3,6 +3,10 @@ const generateBtn = document.getElementById('generateBtn');
 const clearBtn = document.getElementById('clearBtn');
 const btnText = document.getElementById('btnText');
 const btnIcon = document.getElementById('btnIcon');
+const historyBtn = document.getElementById('historyBtn');
+const historyModal = document.getElementById('historyModal');
+const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+const historyList = document.getElementById('historyList');
 
 const emptyState = document.getElementById('emptyState');
 const loadingState = document.getElementById('loadingState');
@@ -23,12 +27,169 @@ const copyEmailBtn = document.getElementById('copyEmailBtn');
 const copyBtnText = document.getElementById('copyBtnText');
 
 let emailDraftText = '';
+let currentRecordId = null;
+let saveTimeout = null;
+
+// 自动保存输入内容（防丢失）
+function autoSaveInput() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    const text = meetingInput.value.trim();
+    if (text) {
+      localStorage.setItem('meeting_input_backup', text);
+    }
+  }, 1000);
+}
+
+// 恢复上次输入
+function restoreInput() {
+  const saved = localStorage.getItem('meeting_input_backup');
+  if (saved) {
+    meetingInput.value = saved;
+  }
+}
+
+// 保存历史记录到服务器
+async function saveToHistory(input, output, topic) {
+  try {
+    const res = await fetch('/api/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input, output, topic })
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentRecordId = data.record.id;
+      return data.record;
+    }
+  } catch (e) {
+    console.error('保存历史记录失败:', e);
+  }
+  return null;
+}
+
+// 更新历史记录
+async function updateHistory(id, input, output, topic) {
+  try {
+    await fetch(`/api/history/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input, output, topic })
+    });
+  } catch (e) {
+    console.error('更新历史记录失败:', e);
+  }
+}
+
+// 加载历史记录列表
+async function loadHistoryList() {
+  try {
+    const res = await fetch('/api/history');
+    const history = await res.json();
+    renderHistoryList(history);
+  } catch (e) {
+    console.error('加载历史记录失败:', e);
+    historyList.innerHTML = '<p class="text-sm text-red-500">加载失败</p>';
+  }
+}
+
+// 渲染历史记录列表
+function renderHistoryList(history) {
+  if (history.length === 0) {
+    historyList.innerHTML = '<p class="text-sm text-slate-400 text-center py-8">暂无历史记录</p>';
+    return;
+  }
+  
+  historyList.innerHTML = history.map(item => {
+    const date = new Date(item.createdAt);
+    const timeStr = date.toLocaleString('zh-CN', { 
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+    });
+    const preview = item.input.slice(0, 50) + (item.input.length > 50 ? '...' : '');
+    return `
+      <div class="history-item bg-slate-50 rounded-xl p-4 hover:bg-slate-100 transition cursor-pointer" data-id="${item.id}">
+        <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <div class="font-medium text-slate-800">${escapeHtml(item.topic || '未命名')}</div>
+            <div class="text-xs text-slate-400 mt-1">${timeStr}</div>
+            <div class="text-sm text-slate-500 mt-2 line-clamp-2">${escapeHtml(preview)}</div>
+          </div>
+          <button class="delete-history text-slate-400 hover:text-red-500 p-1 ml-2" data-id="${item.id}" title="删除">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // 绑定点击事件
+  historyList.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.delete-history')) return;
+      loadHistoryRecord(item.dataset.id);
+    });
+  });
+  
+  historyList.querySelectorAll('.delete-history').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (confirm('确定要删除这条记录吗？')) {
+        await deleteHistory(btn.dataset.id);
+      }
+    });
+  });
+}
+
+// 加载单条历史记录
+async function loadHistoryRecord(id) {
+  try {
+    const res = await fetch('/api/history');
+    const history = await res.json();
+    const record = history.find(r => r.id === id);
+    if (record) {
+      meetingInput.value = record.input;
+      if (record.output) {
+        renderResult(record.output);
+      }
+      currentRecordId = id;
+      closeHistoryModal();
+    }
+  } catch (e) {
+    console.error('加载历史记录失败:', e);
+  }
+}
+
+// 删除历史记录
+async function deleteHistory(id) {
+  try {
+    await fetch(`/api/history/${id}`, { method: 'DELETE' });
+    loadHistoryList();
+  } catch (e) {
+    console.error('删除历史记录失败:', e);
+  }
+}
+
+// 打开历史记录弹窗
+function openHistoryModal() {
+  historyModal.classList.remove('hidden');
+  loadHistoryList();
+}
+
+// 关闭历史记录弹窗
+function closeHistoryModal() {
+  historyModal.classList.add('hidden');
+}
 
 function showState(state) {
   emptyState.classList.toggle('hidden', state !== 'empty');
   loadingState.classList.toggle('hidden', state !== 'loading');
   errorState.classList.toggle('hidden', state !== 'error');
   resultContent.classList.toggle('hidden', state !== 'result');
+  
+  // 页面加载时恢复上次输入
+  if (state === 'empty' && meetingInput.value === '') {
+    restoreInput();
+  }
 }
 
 function setLoading(loading) {
@@ -149,6 +310,16 @@ async function generate() {
     }
 
     renderResult(data);
+    
+    // 自动保存到历史记录
+    const topic = data.topic || '未命名会议';
+    if (currentRecordId) {
+      // 更新现有记录
+      await updateHistory(currentRecordId, text, data, topic);
+    } else {
+      // 创建新记录
+      await saveToHistory(text, data, topic);
+    }
   } catch {
     showState('error');
     errorMessage.textContent = '网络错误，请检查服务器是否已启动';
@@ -161,8 +332,22 @@ generateBtn.addEventListener('click', generate);
 
 clearBtn.addEventListener('click', () => {
   meetingInput.value = '';
+  localStorage.removeItem('meeting_input_backup');
+  currentRecordId = null;
   showState('empty');
 });
+
+// 历史记录按钮
+historyBtn.addEventListener('click', openHistoryModal);
+closeHistoryBtn.addEventListener('click', closeHistoryModal);
+
+// 点击背景关闭弹窗
+historyModal.addEventListener('click', (e) => {
+  if (e.target === historyModal) closeHistoryModal();
+});
+
+// 输入时自动保存到本地
+meetingInput.addEventListener('input', autoSaveInput);
 
 copyEmailBtn.addEventListener('click', async () => {
   if (!emailDraftText) return;

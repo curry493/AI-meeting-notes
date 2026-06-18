@@ -55,6 +55,9 @@
           <button id="clearBtn" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition">
             清空
           </button>
+          <button id="historyBtn" class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition">
+            历史
+          </button>
           <button id="generateBtn" class="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-6 py-2 rounded-xl text-sm font-semibold shadow-sm transition">
             <span id="btnIcon">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -172,6 +175,21 @@
       由 DeepSeek AI 驱动 &middot; 本地运行，保护隐私
     </footer>
 
+  </div>
+
+  <!-- 历史记录弹窗 -->
+  <div id="historyModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+      <div class="flex items-center justify-between p-4 border-b border-slate-200">
+        <h3 class="font-semibold text-slate-800">历史记录</h3>
+        <button id="closeHistoryBtn" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="historyList" class="flex-1 overflow-y-auto p-4 space-y-3">
+        <!-- 历史记录列表 -->
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>

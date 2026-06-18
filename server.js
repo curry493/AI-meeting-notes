@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const https = require('https');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -10,6 +11,111 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+
+// 确保 data 目录存在
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
+
+// 历史记录 API
+function readHistory() {
+  try {
+    if (fs.existsSync(HISTORY_FILE)) {
+      const data = fs.readFileSync(HISTORY_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('读取历史记录失败:', e);
+  }
+  return [];
+}
+
+function writeHistory(history) {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf-8');
+    return true;
+  } catch (e) {
+    console.error('保存历史记录失败:', e);
+    return false;
+  }
+}
+
+// 获取所有历史记录
+app.get('/api/history', function(req, res) {
+  const history = readHistory();
+  res.json(history);
+});
+
+// 保存新记录
+app.post('/api/history', function(req, res) {
+  const { input, output, topic } = req.body;
+  if (!input) {
+    return res.status(400).json({ error: '缺少输入内容' });
+  }
+  
+  const history = readHistory();
+  const newRecord = {
+    id: Date.now().toString(),
+    input: input,
+    output: output || null,
+    topic: topic || '未命名',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  
+  // 新记录添加到开头
+  history.unshift(newRecord);
+  
+  // 只保留最近 100 条记录
+  if (history.length > 100) {
+    history.splice(100);
+  }
+  
+  if (writeHistory(history)) {
+    res.json({ success: true, record: newRecord });
+  } else {
+    res.status(500).json({ error: '保存失败' });
+  }
+});
+
+// 更新记录（修改输出结果）
+app.put('/api/history/:id', function(req, res) {
+  const { id } = req.params;
+  const { input, output, topic } = req.body;
+  
+  const history = readHistory();
+  const index = history.findIndex(r => r.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ error: '记录不存在' });
+  }
+  
+  if (input !== undefined) history[index].input = input;
+  if (output !== undefined) history[index].output = output;
+  if (topic !== undefined) history[index].topic = topic;
+  history[index].updatedAt = new Date().toISOString();
+  
+  if (writeHistory(history)) {
+    res.json({ success: true, record: history[index] });
+  } else {
+    res.status(500).json({ error: '保存失败' });
+  }
+});
+
+// 删除记录
+app.delete('/api/history/:id', function(req, res) {
+  const { id } = req.params;
+  let history = readHistory();
+  history = history.filter(r => r.id !== id);
+  
+  if (writeHistory(history)) {
+    res.json({ success: true });
+  } else {
+    res.status(500).json({ error: '删除失败' });
+  }
+});
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
