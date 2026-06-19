@@ -1,8 +1,11 @@
 {
-  "version": 2,
-  "buildCommand": null,
-  "outputDirectory": "public",
+  "version": 3,
+  "builds": [
+    { "src": "api/**/*.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "static" }
+  ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.js" }
+    { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "src": "/(.*)", "dest": "/public/index.html" }
   ]
 }
