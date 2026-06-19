@@ -32,7 +32,32 @@ const lines = [
 
 const SYSTEM_PROMPT = lines.join('\n');
 
+// 解析请求体
+function parseBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (e) {
+        reject(new Error('Invalid JSON'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 module.exports = async function handler(req, res) {
+  // 设置 CORS 头
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -41,7 +66,14 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Please configure DeepSeek API Key in .env file' });
   }
 
-  const { text } = req.body;
+  let body;
+  try {
+    body = await parseBody(req);
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid request body' });
+  }
+
+  const { text } = body;
   if (!text) {
     return res.status(400).json({ error: 'Missing text parameter' });
   }
@@ -66,7 +98,7 @@ module.exports = async function handler(req, res) {
     }
   };
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const apiReq = https.request(options, function(apiRes) {
       let data = '';
       apiRes.on('data', function(chunk) { data += chunk; });
@@ -75,15 +107,13 @@ module.exports = async function handler(req, res) {
           const parsed = JSON.parse(data);
           if (parsed.error) {
             res.status(400).json({ error: parsed.error.message || 'API request failed' });
-            resolve();
           } else {
             res.status(200).json(JSON.parse(parsed.choices[0].message.content));
-            resolve();
           }
         } catch(e) {
           res.status(500).json({ error: 'Failed to parse API response' });
-          resolve();
         }
+        resolve();
       });
     });
 
