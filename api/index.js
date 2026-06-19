@@ -1,15 +1,4 @@
-const express = require('express');
-const serverless = require('serverless-http');
-const cors = require('cors');
 const https = require('https');
-const path = require('path');
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// Vercel 环境下的静态文件路径
-const staticPath = path.join(process.cwd(), 'public');
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
@@ -43,11 +32,18 @@ const lines = [
 
 const SYSTEM_PROMPT = lines.join('\n');
 
-app.post('/api/summarize', function(req, res) {
-  const text = req.body.text;
-  
+module.exports = async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   if (!API_KEY || API_KEY === 'your_deepseek_api_key_here') {
     return res.status(400).json({ error: 'Please configure DeepSeek API Key in .env file' });
+  }
+
+  const { text } = req.body;
+  if (!text) {
+    return res.status(400).json({ error: 'Missing text parameter' });
   }
 
   const postData = JSON.stringify({
@@ -70,29 +66,33 @@ app.post('/api/summarize', function(req, res) {
     }
   };
 
-  const apiReq = https.request(options, function(apiRes) {
-    let data = '';
-    apiRes.on('data', function(chunk) { data += chunk; });
-    apiRes.on('end', function() {
-      try {
-        const parsed = JSON.parse(data);
-        if (parsed.error) {
-          return res.status(400).json({ error: parsed.error.message || 'API request failed' });
+  return new Promise((resolve, reject) => {
+    const apiReq = https.request(options, function(apiRes) {
+      let data = '';
+      apiRes.on('data', function(chunk) { data += chunk; });
+      apiRes.on('end', function() {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) {
+            res.status(400).json({ error: parsed.error.message || 'API request failed' });
+            resolve();
+          } else {
+            res.status(200).json(JSON.parse(parsed.choices[0].message.content));
+            resolve();
+          }
+        } catch(e) {
+          res.status(500).json({ error: 'Failed to parse API response' });
+          resolve();
         }
-        res.json(JSON.parse(parsed.choices[0].message.content));
-      } catch(e) {
-        res.status(500).json({ error: 'Failed to parse API response' });
-      }
+      });
     });
+
+    apiReq.on('error', function(err) {
+      res.status(500).json({ error: err.message });
+      resolve();
+    });
+
+    apiReq.write(postData);
+    apiReq.end();
   });
-
-  apiReq.on('error', function(err) {
-    res.status(500).json({ error: err.message });
-  });
-
-  apiReq.write(postData);
-  apiReq.end();
-});
-
-module.exports = app;
-module.exports.handler = serverless(app);
+};
