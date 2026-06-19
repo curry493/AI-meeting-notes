@@ -12,6 +12,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// 直接访问 /demo.html
+app.get('/demo.html', function(req, res) {
+  res.sendFile(path.join(__dirname, 'demo.html'));
+});
+
 // 确保 data 目录存在
 const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) {

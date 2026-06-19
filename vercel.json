@@ -1,9 +1,8 @@
 {
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/(.*)", "destination": "/api/index.js" }
-  ],
-  "env": {
-    "DEEPSEEK_API_KEY": "@deepseek-api-key"
-  }
+  "version": 2,
+  "buildCommand": null,
+  "outputDirectory": "public",
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.js" }
+  ]
 }

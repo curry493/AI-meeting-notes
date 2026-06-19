@@ -2,10 +2,14 @@ const express = require('express');
 const serverless = require('serverless-http');
 const cors = require('cors');
 const https = require('https');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Vercel 环境下的静态文件路径
+const staticPath = path.join(process.cwd(), 'public');
 
 const API_KEY = process.env.DEEPSEEK_API_KEY;
 
@@ -88,11 +92,6 @@ app.post('/api/summarize', function(req, res) {
 
   apiReq.write(postData);
   apiReq.end();
-});
-
-// 捕获所有其他请求，返回 index.html
-app.get('*', function(req, res) {
-  res.sendFile(require('path').join(__dirname, 'public', 'index.html'));
 });
 
 module.exports = app;
