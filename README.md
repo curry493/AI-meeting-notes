@@ -40,7 +40,7 @@ DEEPSEEK_API_KEY=your_api_key_here
 npm start
 ```
 
-访问 http://localhost:3000 即可使用。
+访问 http://localhost:3001 即可使用
 
 ## 获取 DeepSeek API Key
 
