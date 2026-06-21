@@ -117,7 +117,7 @@ app.delete('/api/history/:id', function(req, res) {
   }
 });
 
-const API_KEY = process.env.ANTHROPIC_API_KEY;
+const API_KEY = process.env.DEEPSEEK_API_KEY;
 
 const lines = [
   '你是一位专业的会议纪要助手。',
@@ -152,26 +152,26 @@ const SYSTEM_PROMPT = lines.join('\n');
 app.post('/api/summarize', function(req, res) {
   const text = req.body.text;
   
-  if (!API_KEY || API_KEY === 'your_claude_api_key_here') {
-    return res.status(400).json({ error: 'Please configure Claude API Key in .env file (ANTHROPIC_API_KEY)' });
+  if (!API_KEY || API_KEY === 'your_api_key_here') {
+    return res.status(400).json({ error: 'Please configure DeepSeek API Key in .env file' });
   }
   
   const postData = JSON.stringify({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4096,
+    model: 'deepseek-chat',
     messages: [
-      { role: 'user', content: SYSTEM_PROMPT + '\n\n会议内容：\n' + text }
-    ]
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: text }
+    ],
+    response_format: { type: 'json_object' }
   });
 
   const options = {
-    hostname: 'api.anthropic.com',
-    path: '/v1/messages',
+    hostname: 'api.deepseek.com',
+    path: '/chat/completions',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
+      'Authorization': 'Bearer ' + API_KEY,
       'Content-Length': Buffer.byteLength(postData)
     }
   };
@@ -185,9 +185,9 @@ app.post('/api/summarize', function(req, res) {
         if (parsed.error) {
           return res.status(400).json({ error: parsed.error.message || 'API request failed' });
         }
-        res.json(JSON.parse(parsed.content[0].text));
+        res.json(JSON.parse(parsed.choices[0].message.content));
       } catch(e) {
-        res.status(500).json({ error: 'Failed to parse API response: ' + e.message });
+        res.status(500).json({ error: 'Failed to parse API response' });
       }
     });
   });
