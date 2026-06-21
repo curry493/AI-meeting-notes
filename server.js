@@ -12,11 +12,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// 直接访问 /demo.html
-app.get('/demo.html', function(req, res) {
-  res.sendFile(path.join(__dirname, 'demo.html'));
-});
-
 // 确保 data 目录存在
 const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -122,7 +117,7 @@ app.delete('/api/history/:id', function(req, res) {
   }
 });
 
-const API_KEY = process.env.DEEPSEEK_API_KEY;
+const API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const lines = [
   '你是一位专业的会议纪要助手。',
@@ -157,26 +152,26 @@ const SYSTEM_PROMPT = lines.join('\n');
 app.post('/api/summarize', function(req, res) {
   const text = req.body.text;
   
-  if (!API_KEY || API_KEY === 'your_deepseek_api_key_here') {
-    return res.status(400).json({ error: 'Please configure DeepSeek API Key in .env file' });
+  if (!API_KEY || API_KEY === 'your_claude_api_key_here') {
+    return res.status(400).json({ error: 'Please configure Claude API Key in .env file (ANTHROPIC_API_KEY)' });
   }
   
   const postData = JSON.stringify({
-    model: 'deepseek-chat',
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: text }
-    ],
-    response_format: { type: 'json_object' }
+      { role: 'user', content: SYSTEM_PROMPT + '\n\n会议内容：\n' + text }
+    ]
   });
 
   const options = {
-    hostname: 'api.deepseek.com',
-    path: '/chat/completions',
+    hostname: 'api.anthropic.com',
+    path: '/v1/messages',
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + API_KEY,
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
       'Content-Length': Buffer.byteLength(postData)
     }
   };
@@ -190,9 +185,9 @@ app.post('/api/summarize', function(req, res) {
         if (parsed.error) {
           return res.status(400).json({ error: parsed.error.message || 'API request failed' });
         }
-        res.json(JSON.parse(parsed.choices[0].message.content));
+        res.json(JSON.parse(parsed.content[0].text));
       } catch(e) {
-        res.status(500).json({ error: 'Failed to parse API response' });
+        res.status(500).json({ error: 'Failed to parse API response: ' + e.message });
       }
     });
   });
