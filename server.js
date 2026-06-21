@@ -13,7 +13,9 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // 确保 data 目录存在
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.VERCEL 
+  ? '/tmp/data'  // Vercel serverless 用 /tmp
+  : path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -203,3 +205,6 @@ app.post('/api/summarize', function(req, res) {
 app.listen(PORT, function() {
   console.log('SUCCESS: Server started at http://localhost:' + PORT);
 });
+
+// Vercel serverless 模式
+module.exports = app;
