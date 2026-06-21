@@ -10,7 +10,22 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+
+// 静态文件服务（支持 index.html）
+app.use(express.static('public', {
+  index: 'index.html',
+  setHeaders: function (res, path) {
+    // 确保 HTML 被正确缓存
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
+
+// 根路径重定向到 index.html
+app.get('/', function(req, res) {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // 确保 data 目录存在
 const DATA_DIR = process.env.VERCEL 
